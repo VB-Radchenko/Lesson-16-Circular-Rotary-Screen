@@ -1,0 +1,9 @@
+".\Objects\STARTUP_M5.obj",
+".\Objects\Main.obj",
+".\Objects\sys.obj",
+".\Objects\UART_xx.obj",
+".\Objects\RTC_51.obj",
+".\Objects\encoder.obj" 
+TO ".\Objects\T5L51" 
+PRINT(".\Listings\T5L51.m51") RAMSIZE(256) 
+XDATA( 0X8000-0XFFFF )

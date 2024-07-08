@@ -1,0 +1,391 @@
+C51 COMPILER V9.57.0.0   SYS                                                               07/09/2024 01:59:10 PAGE 1   
+
+
+C51 COMPILER V9.57.0.0, COMPILATION OF MODULE SYS
+OBJECT MODULE PLACED IN .\Objects\sys.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE sys.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings
+                    -\sys.lst) TABS(2) OBJECT(.\Objects\sys.obj)
+
+line level    source
+
+   1          #include "sys.h"
+   2          
+   3          
+   4          //核心寄存器初始化
+   5          void sys_cpu_init()
+   6          {
+   7   1            EA = 0;
+   8   1            RS0 = 0;        //Psw.3
+   9   1            RS1 = 0;      //Psw.4
+  10   1            CKCON = 0x00;   //CPU运行=0, 1T模式
+  11   1            T2CON = 0x70;   //
+  12   1            DPC = 0x00;     //
+  13   1            P3MDOUT           = 0x0C;            //RTC时钟输出
+  14   1            P3                = 0x00;  
+  15   1            MUX_SEL|=0x40;    //UART2引出,UART3不引出，WDT关闭P0.4和P0.5
+  16   1            P0MDOUT|=0x03;    //p0.0 p0.1 强推 用于485方向控制
+  17   1            RAMMODE =0x00;    //
+  18   1            PORTDRV =0x01;    //驱动强度+/-8mA
+  19   1            IEN0 = 0x00;      //关闭所有中断
+  20   1            IEN1 = 0x00;
+  21   1            IEN2 = 0x00;
+  22   1            IP0 = 0x00;       //中断优先级默认
+  23   1            IP1 = 0x00;
+  24   1            WDT_OFF();        //关闭看门狗
+  25   1        
+  26   1        //========================================串口2初始化*/
+  27   1            P0MDOUT &= 0xCF;
+  28   1            P0MDOUT |= 0x10;//设置对应的IO口输出输入
+  29   1            ADCON = 0x80;//选择SREL0H:L作为波特率发生器
+  30   1            SCON2 = 0x50;//接受使能和模式设置
+  31   1            PCON &= 0x7F;//SMOD=0 64      SMOD=1    32
+  32   1            SREL2H = (u8)(UART2_BPR>>8);  
+  33   1            SREL2L = (u8)(UART2_BPR);  
+  34   1            IEN0 = 0X10;//中断使能
+  35   1            TR2=0;
+  36   1        //========================================串口4初始化*/
+  37   1      //      BODE4_DIV_H =(u8)(UART4_BPR>>8); 
+  38   1      //      BODE4_DIV_L =(u8)(UART4_BPR); 
+  39   1      //        SCON4T= 0x80;     //发送使能和模式设置
+  40   1      //        SCON4R= 0x80;     //接受使能和模式设置 
+  41   1      //        ES4R = 1;         //中断接受使能
+  42   1      //        ES4T = 1;         //中断发送使能
+  43   1      //        TR4=0;
+  44   1      //========================================
+  45   1      //========================================串口5初始化*/
+  46   1      //      BODE5_DIV_H =(u8)(UART4_BPR>>8);
+  47   1      //      BODE5_DIV_L =(u8)(UART4_BPR);
+  48   1      //        SCON5T= 0x80;     //发送使能和模式设置
+  49   1      //        SCON5R= 0x80;     //接受使能和模式设置 
+  50   1      //        ES5R = 1;         //中断接受使能
+  51   1      //        ES5T = 1;         //中断发送使能
+  52   1      //        TR5=0;
+  53   1      }
+  54          
+C51 COMPILER V9.57.0.0   SYS                                                               07/09/2024 01:59:10 PAGE 2   
+
+  55          
+  56          //定时器2初始化,定时间隔为1ms
+  57          void sys_timer2_init()
+  58          {
+  59   1            TH2 = 0x00;
+  60   1            TL2 = 0x00;
+  61   1            T2CON = 0x70;
+  62   1            TRL2H = 0xBC;  //1ms的定时器
+  63   1            TRL2L = 0xCD;
+  64   1            IEN0 |= 0x20;  //启动定时器2
+  65   1            TR2 = 0x01;
+  66   1            ET2 = 1;         //T2定时器中断使能控制位
+  67   1            EA  = 1;
+  68   1      }
+  69          
+  70          /*****************************************************************************
+  71           函 数 名  : void T0_Init(void)
+  72           功能描述  : 定时器0初始化  定时间隔1ms
+  73           输入参数  :   
+  74           输出参数  : 
+  75           修改历史  :
+  76            1.日    期   : 
+  77              作    者   : 
+  78              修改内容   : 创建
+  79          *****************************************************************************/
+  80          void T0_Init(void)
+  81          {
+  82   1          TMOD|=0x01;
+  83   1          TH0=T1MS>>8;        //1ms定时器
+  84   1          TL0=T1MS;
+  85   1          ET0=1;              //开启定时器0中断
+  86   1          EA=1;               //开总中断
+  87   1          TR0=1;              //开启定时器
+  88   1      }
+  89          
+  90          
+  91          /*****************************************************************************
+  92           函 数 名  : void T1_Init(void)
+  93           功能描述  : 定时器1初始化  定时间隔1ms
+  94           输入参数  :   
+  95           输出参数  : 
+  96           修改历史  :
+  97            1.日    期   : 
+  98              作    者   : 
+  99              修改内容   : 创建
+ 100          *****************************************************************************/
+ 101          void T1_Init(void)
+ 102          {
+ 103   1          TMOD|=0x01;
+ 104   1          TH1=T1MS>>8;        //1ms定时器
+ 105   1          TL1=T1MS;
+ 106   1          ET1=1;              //开启定时器0中断
+ 107   1          EA=1;               //开总中断
+ 108   1          TR1=1;              //开启定时器
+ 109   1      }
+ 110          
+ 111          
+ 112          
+ 113          //系统初始化
+ 114          void CPU_Inite()
+ 115          {
+ 116   1        sys_cpu_init();//核心寄存器初始化
+C51 COMPILER V9.57.0.0   SYS                                                               07/09/2024 01:59:10 PAGE 3   
+
+ 117   1        sys_timer2_init();//定时器2初始化
+ 118   1         T0_Init();
+ 119   1         T1_Init();
+ 120   1        
+ 121   1        
+ 122   1        
+ 123   1        
+ 124   1        Write_Dgus(0x2003,50);Write_Dgus(0x2004,50);Write_Dgus(0x1006,150);
+ 125   1      }
+ 126          //==============================================================================
+ 127          void Page_Change_Handler(u16 n)
+ 128          {
+ 129   1        Write_Dgus(0x0085,n);
+ 130   1        Write_Dgus(0x0084,0X5A01);
+ 131   1          
+ 132   1      }
+ 133          ///*****************************************************************************
+ 134          // 函 数 名  : void read_dgus_vp(u32 addr,u8* buf,u16 len)
+ 135          // 功能描述  : 读dgus地址的值
+ 136          // 输入参数  :   addr：dgus地址值  len：读数据长度
+ 137          // 输出参数  : buf：数据保存缓存区
+ 138          // 修改历史  :
+ 139          //  1.日    期   : 2019年4月2日
+ 140          //    作    者   : chengjing
+ 141          //    修改内容   : 创建
+ 142          //*****************************************************************************/
+ 143          //void read_dgus_vp(u32 addr,u8* buf,u16 len)
+ 144          //{
+ 145          //    u32 OS_addr=0,OS_addr_offset=0;
+ 146          //    u16 OS_len=0,OS_len_offset=0;
+ 147          //    EA=0;
+ 148          //    OS_addr=addr/2;
+ 149          //    OS_addr_offset=addr%2;
+ 150          //    ADR_H=(u8)(OS_addr>>16)&0xFF;
+ 151          //    ADR_M=(u8)(OS_addr>>8)&0xFF;
+ 152          //    ADR_L=(u8)OS_addr&0xFF;
+ 153          //    ADR_INC=1;                 //DGUS  OS存储器地址在读写后自动加1
+ 154          //    RAMMODE=0xAF;               //启动读模式
+ 155          //    if(OS_addr_offset==1)       //首地址有偏移，修正
+ 156          //    {
+ 157          //        while(APP_ACK==0);      //等待
+ 158          //        APP_EN=1;
+ 159          //        while(APP_EN==1); 
+ 160          //        *buf++=DATA1;
+ 161          //        *buf++=DATA0;              
+ 162          //        len--;
+ 163          //        OS_addr_offset=0;
+ 164          //    }
+ 165          //    OS_len=len/2;
+ 166          //    OS_len_offset=len%2;
+ 167          //    if(OS_len_offset==1)
+ 168          //    {
+ 169          //         OS_len++;
+ 170          //    }
+ 171          //    while(OS_len--)
+ 172          //    {
+ 173          //        if((OS_len_offset==1)&&(OS_len==0))
+ 174          //        {          
+ 175          //            while(APP_ACK==0);
+ 176          //            APP_EN=1;
+ 177          //            while(APP_EN==1);       //读写执行结束
+ 178          //            *buf++=DATA3;
+C51 COMPILER V9.57.0.0   SYS                                                               07/09/2024 01:59:10 PAGE 4   
+
+ 179          //            *buf++=DATA2;           
+ 180          //            break;    
+ 181          //        } 
+ 182          //        while(APP_ACK==0);
+ 183          //        APP_EN=1;
+ 184          //        while(APP_EN==1);       //读写执行结束 
+ 185          //        *buf++=DATA3;
+ 186          //        *buf++=DATA2;
+ 187          //        *buf++=DATA1;
+ 188          //        *buf++=DATA0;                          
+ 189          //    }   
+ 190          //    RAMMODE=0x00;           //读写完成后RAMMODE必须置零
+ 191          //    EA=1;  
+ 192          //  return; 
+ 193          //}
+ 194          /////********************************************************/
+ 195          
+ 196          
+ 197          //void write_dgus_vp(u32 addr,u8* buf,u16 len)
+ 198          //{
+ 199          //    u32 OS_addr=0,OS_addr_offset=0;
+ 200          //    u16 OS_len=0,OS_len_offset=0;
+ 201          //    EA=0;
+ 202          //    OS_addr=addr/2;
+ 203          //    OS_addr_offset=addr%2; 
+ 204          //    ADR_H=(u8)(OS_addr>>16)&0xFF;
+ 205          //    ADR_M=(u8)(OS_addr>>8)&0xFF;
+ 206          //    ADR_L=(u8)OS_addr&0xFF;
+ 207          //    ADR_INC=0x01;                 //DGUS  OS存储器地址在读写后自动加1
+ 208          //    RAMMODE=0x8F;               //启动写模式 
+ 209          //    if(OS_addr_offset==1)
+ 210          //    {
+ 211          //        ADR_INC=0;
+ 212          //        RAMMODE=0xAF;
+ 213          //        while(APP_ACK==0);
+ 214          //        APP_EN=1;
+ 215          //        while(APP_EN==1);       //读写执行结束
+ 216          //        ADR_INC=0x01; 
+ 217          //        RAMMODE=0x8F;
+ 218          //        while(APP_ACK==0);      
+ 219          //        DATA1=*buf++;
+ 220          //        DATA0=*buf++;
+ 221          //        APP_EN=1;
+ 222          //        while(APP_EN==1);       //读写执行结束
+ 223          //        len--;
+ 224          //        OS_addr_offset=0;
+ 225          //    }
+ 226          //    OS_len=len/2;
+ 227          //    OS_len_offset=len%2; 
+ 228          //    if(OS_len_offset==1)
+ 229          //    {
+ 230          //         OS_len++;
+ 231          //    } 
+ 232          //    while(OS_len--)
+ 233          //    {
+ 234          //        if((OS_len_offset==1)&&(OS_len==0))
+ 235          //        {
+ 236          //            ADR_INC=0;
+ 237          //            RAMMODE=0xAF;
+ 238          //            while(APP_ACK==0);
+ 239          //            APP_EN=1;                //增加一个读过程，以免写单字时会将另一个单字写0
+ 240          //            while(APP_EN==1);       //读写执行结束
+C51 COMPILER V9.57.0.0   SYS                                                               07/09/2024 01:59:10 PAGE 5   
+
+ 241          //            ADR_INC=0x01;
+ 242          //            RAMMODE=0x8F;
+ 243          //            while(APP_ACK==0);           
+ 244          //            DATA3=*buf++;
+ 245          //            DATA2=*buf++;
+ 246          //            APP_EN=1;
+ 247          //            while(APP_EN==1);       //读写执行结束
+ 248          //            break;
+ 249          //        }
+ 250          //        while(APP_ACK==0);        
+ 251          //        DATA3=*buf++;
+ 252          //        DATA2=*buf++;
+ 253          //        DATA1=*buf++;
+ 254          //        DATA0=*buf++;
+ 255          //        APP_EN=1;
+ 256          //        while(APP_EN==1);       //读写执行结束
+ 257          //    } 
+ 258          //    RAMMODE=0x00;       //读写完成后RAMMODE必须置零
+ 259          //    EA=1;  
+ 260          //  return;
+ 261          //}
+ 262          
+ 263          ////软件大致延时,单位ms
+ 264          ////如果修改了优化等级,那么此函数内部的参数需要重新调试
+ 265          //void sys_delay_about_ms(u16 ms)
+ 266          //{
+ 267          //  u16 i,j;
+ 268          //  for(i=0;i<ms;i++)
+ 269          //      for(j=0;j<3000;j++);    
+ 270          //}
+ 271          
+ 272          
+ 273          ////软件大致延时,单位us
+ 274          ////如果修改了优化等级,那么此函数内部的参数需要重新调试
+ 275          //void sys_delay_about_us(u8 us)
+ 276          //{
+ 277          //  u8 i,j;
+ 278          //  for(i=0;i<us;i++)
+ 279          //      for(j=0;j<5;j++);    
+ 280          //}
+ 281          
+ 282          
+ 283          
+ 284          
+ 285          
+ 286          //===============================================
+ 287          u16 Read_Dgus(u16 Dgus_Addr)
+ 288          {         u16 R_Dgus=0;
+ 289   1            EA = 0;
+ 290   1            ADR_H = 0x00;
+ 291   1            ADR_M = (u8)((Dgus_Addr/2)>>8);
+ 292   1            ADR_L = (u8)(Dgus_Addr/2);
+ 293   1            RAMMODE = 0xAF;   //读操作
+ 294   1            while(!APP_ACK);
+ 295   1            APP_EN = 1;
+ 296   1            while(APP_EN);
+ 297   1            if(Dgus_Addr%2) R_Dgus = (DATA1<<8)+DATA0; 
+ 298   1            else   R_Dgus=(DATA3<<8)+DATA2;
+ 299   1            RAMMODE = 0;
+ 300   1            EA = 1;
+ 301   1            return   R_Dgus;    
+ 302   1      }
+C51 COMPILER V9.57.0.0   SYS                                                               07/09/2024 01:59:10 PAGE 6   
+
+ 303          /****************************************************************************/
+ 304          void Write_Dgus(u16 Dgus_Addr,u16 Val)
+ 305          {           EA = 0;
+ 306   1            ADR_H = 0x00;
+ 307   1            ADR_M = (u8)((Dgus_Addr/2)>>8);
+ 308   1            ADR_L = (u8)(Dgus_Addr/2);
+ 309   1            RAMMODE = 0xAF;   //读操作
+ 310   1            while(!APP_ACK);
+ 311   1            APP_EN = 1;
+ 312   1            while(APP_EN);
+ 313   1            RAMMODE = 0;
+ 314   1              ADR_M = (u8)((Dgus_Addr/2)>>8);
+ 315   1            ADR_L = (u8)(Dgus_Addr/2);
+ 316   1            RAMMODE = 0x8F;   //写操作
+ 317   1              while(!APP_ACK);
+ 318   1            if(Dgus_Addr%2){DATA1=(u8)(Val>>8); DATA0=(u8)(Val); }
+ 319   1            else { DATA3 =(u8)(Val>>8); DATA2 =(u8)(Val);}
+ 320   1              APP_EN = 1;
+ 321   1            while(APP_EN);
+ 322   1            RAMMODE = 0;
+ 323   1            EA = 1;
+ 324   1      }
+ 325          /*********************************/
+ 326          /************************************************************//*
+ 327          D7：操作模式0x5A=读0xA5=写，CPU操作完清零。
+ 328          D6:4：片内NorFlash数据库首地址，必须是偶数，0x000000-0x02:7FFE，160KWords。
+ 329          D3:2：数据变量空间首地址，必须是偶数。
+ 330          D1:0：读写字长度，必须是偶数。
+ 331          参数1  选择NorFlash 位置 00-02
+ 332          参数2  NorFlash 地址   0x000000-0x02:7FFE，160KWords。
+ 333          参数3  DGUS地址        0x10000-xffff
+ 334          参数4  长度             必须是偶数。
+ 335          **************************************************************/
+ 336          // void Write_flash(u8 place ,u16 falsh_adder,u8 len,u16 vla_adder)
+ 337          // {
+ 338          //   Write_Dgus(0x000B,len);
+ 339          //   Write_Dgus(0x000A,vla_adder);
+ 340          //   Write_Dgus(0x0009,falsh_adder);
+ 341          //   Write_Dgus(0x0008,((0XA5<<8)+place));
+ 342          //   while(Read_Dgus(0X0008)&0xFF00);
+ 343          // }
+ 344          // 
+ 345          // //=============================================
+ 346          // void Read_flash(u8 place ,u16 falsh_adder,u8 len,u16 vla_adder)
+ 347          // {
+ 348          //   Write_Dgus(0x000B,len);
+ 349          //   Write_Dgus(0x000A,vla_adder);
+ 350          //   Write_Dgus(0x0009,falsh_adder);
+ 351          //   Write_Dgus(0x0008,((0X5A<<8)+place));
+ 352          //   while(Read_Dgus(0X0008)&0xFF00);
+ 353          // }
+ 354          
+ 355          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    345    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+C51 COMPILER V9.57.0.0   SYS                                                               07/09/2024 01:59:10 PAGE 7   
+
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

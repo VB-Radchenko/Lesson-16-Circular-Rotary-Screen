@@ -1,0 +1,43 @@
+C51 COMPILER V9.57.0.0   MAIN                                                              07/09/2024 01:59:10 PAGE 1   
+
+
+C51 COMPILER V9.57.0.0, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Objects\Main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE Main.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listing
+                    -s\Main.lst) TABS(2) OBJECT(.\Objects\Main.obj)
+
+line level    source
+
+   1          #include "sys.h"
+   2          
+   3          
+   4          
+   5          void main(void) 
+   6          {
+   7   1        CPU_Inite();
+   8   1        while(1)
+   9   1        {
+  10   2          Clock();
+  11   2          if((1==R_OD2)&&(T_O2==0)) 
+  12   2            {
+  13   3              ReceiveDate2();
+  14   3              R_OD2=0;
+  15   3              R_CN2=0;
+  16   3            }//8283
+  17   2          Encoder_DGUS();
+  18   2        }
+  19   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     36    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

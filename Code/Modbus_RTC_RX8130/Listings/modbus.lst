@@ -1,0 +1,482 @@
+C51 COMPILER V9.57.0.0   MODBUS                                                            11/18/2022 15:43:00 PAGE 1   
+
+
+C51 COMPILER V9.57.0.0, COMPILATION OF MODULE MODBUS
+OBJECT MODULE PLACED IN .\Objects\modbus.obj
+COMPILER INVOKED BY: D:\Keil_v5\C51\BIN\C51.EXE modbus.c LARGE OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listi
+                    -ngs\modbus.lst) TABS(2) OBJECT(.\Objects\modbus.obj)
+
+line level    source
+
+   1          
+   2          #include "sys.h"
+   3          
+   4                  
+   5          #define        MODBUS_SLAVE_ADDRESS            0x01    //设备端地址
+   6          #define        MODBUS_READ_COMMAND_03H         0X03    //command modbus
+   7          #define        MODBUS_WRITE_COMMAND_06H        0x06     //command
+   8          
+   9          u8  xdata MODBUS_READ_REG_LEN=0;
+  10          u8  xdata Modbus_Buffer[255];
+  11          u8 xdata  Modbus_Buffer_03H[255];    //03H读回来的数据保存
+  12          
+  13          bit Flog=0;    
+  14               
+  15          /*****************************************************************************
+  16           函 数 名  : Modbus_Read_Register(u16 addr,u16 num)
+  17           功能描述  : 
+  18                0x03: 读取vp变量空间
+  19                
+  20           输入参数  :  
+  21           输出参数  : 
+  22           修改历史  :
+  23            1.日    期   : 
+  24              作    者   : 
+  25              修改内容   : 创建
+  26          *****************************************************************************/
+  27          
+  28          void Modbus_Read_Register_03H(u16 addr,u16 num)
+  29          {
+  30   1        u16 crc_data;
+  31   1        u8 len,i;
+  32   1        u8 modbus_tx_buf[20];
+  33   1        
+  34   1        len = 0;
+  35   1        modbus_tx_buf[len++] = MODBUS_SLAVE_ADDRESS;
+  36   1        modbus_tx_buf[len++] = MODBUS_READ_COMMAND_03H; //command
+  37   1        modbus_tx_buf[len++] = (addr >> 8) & 0xFF;; //register
+  38   1        modbus_tx_buf[len++] = addr & 0xFF; 
+  39   1        modbus_tx_buf[len++] = (num >> 8) & 0xFF; //register number
+  40   1        modbus_tx_buf[len++] = num & 0xFF; 
+  41   1      
+  42   1        crc_data = CRC16_CACU(modbus_tx_buf,len);
+  43   1        modbus_tx_buf[len++] = (crc_data >> 8) & 0xFF; 
+  44   1        modbus_tx_buf[len++] = crc_data & 0xFF; 
+  45   1        TR5=1;
+  46   1        for(i=0;i<len;i++)
+  47   1        OneSendData5( modbus_tx_buf[i]);
+  48   1        while(Busy5);TR5=0;
+  49   1        //UART5_SendStr(modbus_tx_buf,len);
+  50   1      } 
+  51          
+  52          /*****************************************************************************
+  53           函 数 名  : Modbus_Write_Register(u16 reg,u16 value)
+  54           功能描述  : 
+C51 COMPILER V9.57.0.0   MODBUS                                                            11/18/2022 15:43:00 PAGE 2   
+
+  55                0x06: 写寄存器变量空间
+  56                
+  57           输入参数  :  
+  58           输出参数  : 
+  59           修改历史  :
+  60            1.日    期   : 
+  61              作    者   : 
+  62              修改内容   : 创建
+  63          *****************************************************************************/
+  64          void Modbus_Write_Register_06H(u16 reg,u16 value)
+  65          {
+  66   1        u16 crc_data;
+  67   1        u8 len,i;
+  68   1        u8 modbus_tx_buf[20];
+  69   1      
+  70   1        len = 0;
+  71   1        modbus_tx_buf[len++] = MODBUS_SLAVE_ADDRESS;
+  72   1        modbus_tx_buf[len++] = MODBUS_WRITE_COMMAND_06H; //command
+  73   1        modbus_tx_buf[len++] = (reg >> 8) & 0xFF;; //register
+  74   1        modbus_tx_buf[len++] = reg & 0xFF; 
+  75   1        modbus_tx_buf[len++] = (value >> 8) & 0xFF; //register value
+  76   1        modbus_tx_buf[len++] = value & 0xFF; 
+  77   1        crc_data = CRC16_CACU(modbus_tx_buf,len);
+  78   1        modbus_tx_buf[len++] = (crc_data >> 8) & 0xFF; 
+  79   1        modbus_tx_buf[len++] = crc_data & 0xFF; 
+  80   1        TR5=1;
+  81   1        for(i=0;i<len;i++)
+  82   1        OneSendData5( modbus_tx_buf[i]);
+  83   1        while(Busy5);TR5=0;
+  84   1        //UART5_SendStr(modbus_tx_buf,len);
+  85   1      } 
+  86          
+  87          /************************************************************************/
+  88          /*****************************************************************************
+  89           函 数 名  : Modbus_Write_Register_10H(u16 reg,u16 Dgus_adder,u8 ModbusLen)
+  90           功能描述  : 
+  91                0x10: 多个寄存器变量空间
+  92                
+  93           输入参数  :  
+  94           输出参数  : 
+  95           修改历史  :
+  96            1.日    期   : 
+  97              作    者   : 
+  98              修改内容   : 创建
+  99          *****************************************************************************/
+ 100          //modbus 10H 发送  01 10 1000 0005 0A 0001 0002 0003 0004 0005 CRCH CRCL
+ 101          void Modbus_Write_Register_10H(u16 reg,u16 Dgus_adder,u8 ModbusLen)
+ 102          {
+ 103   1        u16 crc_data=0,n=0;
+ 104   1        u8 len,i;
+ 105   1        u8 modbus_tx_buf[100];
+ 106   1        len = 0;
+ 107   1        crc_data=0;
+ 108   1        n=0;
+ 109   1        modbus_tx_buf[len++] = MODBUS_SLAVE_ADDRESS;
+ 110   1        modbus_tx_buf[len++] = 0x10; //command
+ 111   1        modbus_tx_buf[len++] = (reg >> 8) & 0xFF;; //register 
+ 112   1        modbus_tx_buf[len++] = reg & 0xFF; 
+ 113   1        modbus_tx_buf[len++] = 0; //
+ 114   1        modbus_tx_buf[len++] = ModbusLen; 
+ 115   1        modbus_tx_buf[len++] = ModbusLen*2;
+ 116   1        for(i=0;i<ModbusLen;i++)
+C51 COMPILER V9.57.0.0   MODBUS                                                            11/18/2022 15:43:00 PAGE 3   
+
+ 117   1        { 
+ 118   2         n=Read_Dgus(Dgus_adder+i);
+ 119   2         modbus_tx_buf[len++]=(u8)(n>>8);
+ 120   2         modbus_tx_buf[len++]=(u8)(n);
+ 121   2        }
+ 122   1        crc_data = CRC16_CACU(modbus_tx_buf,len);
+ 123   1        modbus_tx_buf[len++] = (crc_data >> 8) & 0xFF; 
+ 124   1        modbus_tx_buf[len++] = crc_data & 0xFF; 
+ 125   1        TR5=1;
+ 126   1        for(i=0;i<len;i++)
+ 127   1                 {
+ 128   2                 
+ 129   2                 OneSendData5(modbus_tx_buf[i]);
+ 130   2                 while(Busy5);
+ 131   2                 TR5=0;
+ 132   2                 }
+ 133   1      } 
+ 134          
+ 135          
+ 136          
+ 137          ///**************************************************************************/
+ 138          
+ 139          /******************************************************************************
+ 140           /*****************************************************************************
+ 141           函 数 名  :modbus_process_command(u8 *pstr,u16 strlen)
+ 142           功能描述  : 主机
+ 143                
+ 144           输入参数  :  
+ 145           输出参数  : 
+ 146           修改历史  :
+ 147            1.日    期   : 
+ 148              作    者   : 
+ 149              修改内容   : 创建
+ 150          *****************************************************************************/   
+ 151          void modbus_process_command()
+ 152          {
+ 153   1        
+ 154   1        
+ 155   1        u16  modbus_crc;
+ 156   1        u8  MODBUS_LEN;
+ 157   1        //u8  CH=0,CL=0;
+ 158   1        u8  N=0,i=0;
+ 159   1        MODBUS_LEN = 0;
+ 160   1        Flog=1;
+ 161   1            
+ 162   1            while(Flog)
+ 163   1            {   if((R_u5[N]==0X01))   
+ 164   2                {      if(R_u5[N+1]==0x03)     
+ 165   3                       {     
+ 166   4                              MODBUS_LEN=R_u5[N+2]+3+2;
+ 167   4                             for(i=0;i<MODBUS_LEN;i++)
+ 168   4                              {
+ 169   5                              Modbus_Buffer_03H[i]= R_u5[N+i];
+ 170   5                              }
+ 171   4                              MODBUS_LEN-=2;
+ 172   4                              modbus_crc=CRC16_CACU(Modbus_Buffer_03H,MODBUS_LEN);
+ 173   4                              MODBUS_LEN+=2;
+ 174   4                              if(modbus_crc==((Modbus_Buffer_03H[MODBUS_LEN-2]<<8)+Modbus_Buffer_03H[MODBUS_LEN-1]))
+ 175   4                              {
+ 176   5                                    MODBUS_LEN=R_u5[N+2]/2;
+ 177   5                                    for(i=0;i<MODBUS_LEN;i++)
+ 178   5                                    {
+C51 COMPILER V9.57.0.0   MODBUS                                                            11/18/2022 15:43:00 PAGE 4   
+
+ 179   6                                       Write_Dgus(0x6000+i,((Modbus_Buffer_03H[3+2*i]<<8)+Modbus_Buffer_03H[4+2*i]));
+ 180   6                                    
+ 181   6                                    }
+ 182   5                              }
+ 183   4                        }   
+ 184   3                       Flog=0;
+ 185   3                }
+ 186   2                else
+ 187   2                {      if(N<(R_CN5-4)) N++;
+ 188   3                       else            Flog=0; 
+ 189   3                }
+ 190   2            }
+ 191   1      
+ 192   1      }
+ 193          /******************************************************************************
+ 194          modbus 发送和接收任务处理程序，实现：
+ 195          1. 监控串口接收，当判断接收结束后，调用处理函数，
+ 196          2. 监控UI的触发命令，当有检测到发送命令时，发送modbus写命令
+ 197          3. 每隔1秒钟触发一次查询modbus寄存器状态的命令
+ 198          ******************************************************************************/
+ 199          void Modbus_Process_Task()
+ 200          {
+ 201   1        u16 xdata TP_keycode=Read_Dgus(0x0F00);
+ 202   1      
+ 203   1        if(((u8)(TP_keycode>>8))==0x5A)
+ 204   1         {
+ 205   2           
+ 206   2            Write_Dgus(0X0F00,0);
+ 207   2            Modbus_Write_Register_10H(0X0000,0X1000,10);
+ 208   2         }
+ 209   1         else
+ 210   1         {
+ 211   2          if(fang1)  //一秒钟执行一次，
+ 212   2            {
+ 213   3                fang1=0;
+ 214   3                Modbus_Read_Register_03H(0x0D42,7); //从4101H地址开始读取30个寄存器的内容，更新状态信息
+ 215   3      
+ 216   3            
+ 217   3                //sys_delay_ms(100);
+ 218   3                //Modbus_Write_Register_10H(0X0001,0X1000,5);
+ 219   3                //sys_delay_ms(100);
+ 220   3                //Modbus_Write_Register_06H(0x1000,50);
+ 221   3              
+ 222   3              
+ 223   3            }
+ 224   2         
+ 225   2         }
+ 226   1      }
+ 227          /*****************************************************************************
+ 228           函 数 名  : void Modbus_Salve_Handler(void)
+ 229           功能描述  : modbus salve处理函数
+ 230                0x03: 读取vp变量空间
+ 231                0x06  写单个vp变量
+ 232                0x10  写vp变量空间
+ 233           输入参数  :  
+ 234           输出参数  : 
+ 235           修改历史  :
+ 236            1.日    期   : 
+ 237              作    者   : 
+ 238              修改内容   : 创建
+ 239          *****************************************************************************/
+ 240          
+C51 COMPILER V9.57.0.0   MODBUS                                                            11/18/2022 15:43:00 PAGE 5   
+
+ 241          void Modbus_Salve_Handler(void)
+ 242          {
+ 243   1        u8 cmd;u8 j=0,i=0;
+ 244   1        u16 modbus_addr,modbus_len,modbus_data;
+ 245   1        u8 len;
+ 246   1        u16 modbus_crc;
+ 247   1        u8  num=0;
+ 248   1        
+ 249   1         do
+ 250   1         {
+ 251   2          
+ 252   2          if(R_u5[num]==MODBUS_SLAVE_ADDRESS)
+ 253   2          {
+ 254   3          
+ 255   3            cmd=R_u5[num+1];
+ 256   3            
+ 257   3            
+ 258   3            switch(cmd)
+ 259   3            {
+ 260   4              case  0x03:   //0x03 读取vp变量空间
+ 261   4                for(i=0;i<8;i++)
+ 262   4                {
+ 263   5                Modbus_Buffer[i]= R_u5[num+i];
+ 264   5                }
+ 265   4                modbus_crc=CRC16_CACU(Modbus_Buffer,6);
+ 266   4               if(modbus_crc==((Modbus_Buffer[6]<<8)+Modbus_Buffer[7]))
+ 267   4               {
+ 268   5                modbus_addr=(R_u5[num+2]<<8)|R_u5[num+3];
+ 269   5                modbus_len=(R_u5[num+4]<<8)|R_u5[num+5];
+ 270   5                len=modbus_len*2;
+ 271   5                //num=0;
+ 272   5                Modbus_Buffer[0]=R_u5[num+0];
+ 273   5                Modbus_Buffer[1]=0x03;
+ 274   5                Modbus_Buffer[2]=len;
+ 275   5                read_dgus_vp((u32)modbus_addr,(u8*)&Modbus_Buffer[3],modbus_len);
+ 276   5                len+=3;
+ 277   5                modbus_crc=CRC16_CACU(Modbus_Buffer,len);
+ 278   5                Modbus_Buffer[len]=(u8)(modbus_crc>>8);
+ 279   5                Modbus_Buffer[len+1]=(u8)(modbus_crc);
+ 280   5                len+=2;
+ 281   5              
+ 282   5                 for(i=0;i<len;i++)
+ 283   5                 {
+ 284   6                  TR5=1;
+ 285   6                 OneSendData5(Modbus_Buffer[i]);
+ 286   6                 while(Busy5);
+ 287   6                 TR5=0;
+ 288   6                 }
+ 289   5                //UART5_SendStr(Modbus_Buffer,len);
+ 290   5                  
+ 291   5               }
+ 292   4               //Modbus_RX_Reset();
+ 293   4                break;
+ 294   4              case  0x06:   //0x06  写单个vp变量
+ 295   4              for(i=0;i<8;i++)
+ 296   4                {
+ 297   5                Modbus_Buffer[i]= R_u5[num+i];
+ 298   5                  
+ 299   5                }
+ 300   4                modbus_crc=CRC16_CACU(Modbus_Buffer,6);
+ 301   4               if(modbus_crc==((Modbus_Buffer[6]<<8)+Modbus_Buffer[7]))
+ 302   4               {
+C51 COMPILER V9.57.0.0   MODBUS                                                            11/18/2022 15:43:00 PAGE 6   
+
+ 303   5                modbus_addr=(R_u5[num+2]<<8)|R_u5[num+3];
+ 304   5                modbus_data=(R_u5[num+4]<<8)|R_u5[num+5];
+ 305   5                
+ 306   5                // Write_Dgus(((R_u5[num+2]<<8)+R_u5[num+3]),((R_u5[num+4]<<8)+R_u5[num+5]));
+ 307   5                write_dgus_vp((u32)modbus_addr,(u8*)&modbus_data,1);
+ 308   5                //num=0;
+ 309   5                Modbus_Buffer[0]=R_u5[num];
+ 310   5                Modbus_Buffer[1]=R_u5[num+1];
+ 311   5                Modbus_Buffer[2]=R_u5[num+2];
+ 312   5                Modbus_Buffer[3]=R_u5[num+3];
+ 313   5                Modbus_Buffer[4]=R_u5[num+4];
+ 314   5                Modbus_Buffer[5]=R_u5[num+5];
+ 315   5                len=6;
+ 316   5                modbus_crc=CRC16_CACU(Modbus_Buffer,len);
+ 317   5                Modbus_Buffer[len]=(u8)(modbus_crc>>8);
+ 318   5                Modbus_Buffer[len+1]=(u8)(modbus_crc);
+ 319   5                len+=2;
+ 320   5                 for(i=0;i<len;i++)
+ 321   5                 {
+ 322   6                   TR5=1;
+ 323   6                   OneSendData5(Modbus_Buffer[i]);
+ 324   6                   while(Busy5);
+ 325   6                   TR5=0;
+ 326   6                 }
+ 327   5                //UART5_SendStr(Modbus_Buffer,len);
+ 328   5                //Modbus_RX_Reset();
+ 329   5               }
+ 330   4                break;
+ 331   4              case  0x10:   //0x10  写vp变量空间
+ 332   4                  
+ 333   4      
+ 334   4                modbus_len=(R_u5[num+4]<<8)|R_u5[num+5];
+ 335   4                len=(modbus_len*2)+7+2;//加前面len 后面CRC
+ 336   4                  for(i=0;i<len;i++)
+ 337   4                {
+ 338   5                  Modbus_Buffer[i]= R_u5[num+i];
+ 339   5                  //OneSendData5(Modbus_Buffer[i]);
+ 340   5                }
+ 341   4                
+ 342   4                  len-=2;
+ 343   4                  //OneSendData5(len);
+ 344   4                
+ 345   4                modbus_crc=CRC16_CACU(Modbus_Buffer,len);
+ 346   4                //CH=(u8)(modbus_crc>>8);
+ 347   4                //CL=(u8)(modbus_crc);
+ 348   4                //OneSendData5(CH);
+ 349   4                //OneSendData5(CL);
+ 350   4                len+=2;
+ 351   4                //OneSendData5(Modbus_Buffer[len-2]);
+ 352   4                //OneSendData5(Modbus_Buffer[len-1]);
+ 353   4                
+ 354   4               if(modbus_crc==((Modbus_Buffer[len-2]<<8)+Modbus_Buffer[len-1]))
+ 355   4                {
+ 356   5                for(j=0;j<modbus_len;j++)
+ 357   5                Write_Dgus(((R_u5[num+2]<<8)+R_u5[num+3]+j),((R_u5[num+7+j*2]<<8)+R_u5[num+8+j*2]));
+ 358   5            
+ 359   5                Modbus_Buffer[0]=R_u5[num];
+ 360   5                Modbus_Buffer[1]=0x10;
+ 361   5                Modbus_Buffer[2]=R_u5[num+2];
+ 362   5                Modbus_Buffer[3]=R_u5[num+3];
+ 363   5                Modbus_Buffer[4]=R_u5[num+4];
+ 364   5                Modbus_Buffer[5]=R_u5[num+5];
+C51 COMPILER V9.57.0.0   MODBUS                                                            11/18/2022 15:43:00 PAGE 7   
+
+ 365   5                len=6;
+ 366   5                modbus_crc=CRC16_CACU(Modbus_Buffer,len);
+ 367   5                Modbus_Buffer[len]=(u8)(modbus_crc>>8);
+ 368   5                Modbus_Buffer[len+1]=(u8)(modbus_crc);
+ 369   5                len+=2;
+ 370   5                for(i=0;i<len;i++)
+ 371   5                 {
+ 372   6                 TR5=1;
+ 373   6                 OneSendData5(Modbus_Buffer[i]);
+ 374   6                 while(Busy5);
+ 375   6                 TR5=0;
+ 376   6                 }
+ 377   5                //UART5_SendStr(Modbus_Buffer,len);
+ 378   5                //Modbus_RX_Reset();
+ 379   5                 }
+ 380   4                break;
+ 381   4                 
+ 382   4              default:
+ 383   4              
+ 384   4                break;
+ 385   4             }
+ 386   3            
+ 387   3          }
+ 388   2        
+ 389   2          num++;
+ 390   2        }while (num<(R_CN5 -7));
+ 391   1        //Modbus_RX_Reset();
+ 392   1       
+ 393   1      }
+ 394          /*****************************************************************************
+ 395           函 数 名  :void Modbus_Salve_Command()
+ 396           功能描述  : modbus salve处理函数
+ 397                
+ 398           输入参数  :  
+ 399           输出参数  : 
+ 400           修改历史  :
+ 401            1.日    期   : 
+ 402              作    者   : 
+ 403              修改内容   : 创建
+ 404          *****************************************************************************/
+ 405          
+ 406          
+ 407          /*****************************************************************************
+ 408           函 数 名  :Modbus_master_Salve_Set()
+ 409           功能描述  : 主机和从机选择函数
+ 410                
+ 411           输入参数  :  
+ 412           输出参数  : 
+ 413           修改历史  :
+ 414            1.日    期   : 
+ 415              作    者   : 
+ 416              修改内容   : 创建
+ 417          *****************************************************************************/
+ 418          
+ 419          
+ 420          
+ 421          //==========================================
+ 422          void Decimal_conversion()
+ 423          {
+ 424   1           float  xdata   tem[8];
+ 425   1           float  xdata   sdfg1[8];
+ 426   1           u8     xdata   i=0;
+C51 COMPILER V9.57.0.0   MODBUS                                                            11/18/2022 15:43:00 PAGE 8   
+
+ 427   1               for(i=0;i<8;i++)
+ 428   1               sdfg1[i]=Read_Dgus(0x6000+i);
+ 429   1               for(i=0;i<8;i++)
+ 430   1               tem[i]=(float)(sdfg1[i]*100)/32767;
+ 431   1               write_dgus_vp(0X7000,(u8*)tem,16);
+ 432   1          
+ 433   1      
+ 434   1      }
+ 435          
+ 436          //void  OneSendData5_16(u16 D_data)
+ 437          //{   
+ 438          //      u8 xdata X_H=0;
+ 439          //      u8 xdata X_L=0;
+ 440          //      X_H=(u8)(D_data>>8);
+ 441          //      X_L=(u8)(D_data);
+ 442          //      OneSendData5(X_H);
+ 443          //      OneSendData5(X_L);
+ 444          //}
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2866    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    511     233
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

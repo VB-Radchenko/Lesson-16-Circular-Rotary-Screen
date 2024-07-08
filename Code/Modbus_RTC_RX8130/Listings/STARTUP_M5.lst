@@ -1,0 +1,147 @@
+A51 MACRO ASSEMBLER  STARTUP_M5                                                           07/09/2024 01:59:10 PAGE     1
+
+
+MACRO ASSEMBLER A51 V8.2.7.0
+OBJECT MODULE PLACED IN .\Objects\STARTUP_M5.obj
+ASSEMBLER INVOKED BY: C:\Keil_v5\C51\BIN\A51.EXE STARTUP_M5.A51 SET(LARGE) DEBUG PRINT(.\Listings\STARTUP_M5.lst) OBJECT
+                      (.\Objects\STARTUP_M5.obj) EP
+
+LOC  OBJ            LINE     SOURCE
+
+                       1     $nomod51 
+  0100                 2     IDATALEN        EQU     100H
+  8000                 3     XDATASTART      EQU     0x8000     
+  8000                 4     XDATALEN        EQU     0x8000     
+  0000                 5     PDATASTART      EQU     0H
+  0000                 6     PDATALEN        EQU     0H
+  0000                 7     IBPSTACK        EQU     0 
+  0100                 8     IBPSTACKTOP     EQU     0xFF +1    
+  0000                 9     XBPSTACK        EQU     0       
+  0000                10     XBPSTACKTOP     EQU     0xFFFF +1   
+  0000                11     PBPSTACK        EQU     0       
+  0100                12     PBPSTACKTOP     EQU     0xFF +1
+  0000                13     PPAGEENABLE     EQU     0 
+  0000                14     PPAGE           EQU     0
+  00A0                15     PPAGE_SFR       DATA    0A0H
+  00E0                16     ACC             DATA    0E0H
+  00F0                17     B               DATA    0F0H
+  0081                18     SP              DATA    81H
+  0082                19     DPL             DATA    82H
+  0083                20     DPH             DATA    83H
+  0094                21     PAGESEL         DATA    94H
+  0095                22     D_PAGESEL               DATA    95H
+                      23                     NAME    ?C_STARTUP
+                      24     ?C_C51STARTUP   SEGMENT   CODE
+                      25     ?STACK          SEGMENT   IDATA
+----                  26                     RSEG    ?STACK
+0000                  27                     DS      1
+                      28                     EXTRN CODE (?C_START)
+                      29                     PUBLIC  ?C_STARTUP
+----                  30                                     CSEG    AT  0F8H
+00F8 FFFF             31                     DB  0FFH,0FFH
+00FA 4457494E         32                     DB  'DWINT5'
+00FE 5435                    
+----                  33                     CSEG    AT      0
+0000 020000   F       34     ?C_STARTUP:     LJMP    STARTUP1
+----                  35                     RSEG    ?C_C51STARTUP
+0000                  36     STARTUP1:
+                      37     IF IDATALEN <> 0
+0000 78FF             38                     MOV     R0,#IDATALEN - 1
+0002 E4               39                     CLR     A
+0003 F6               40     IDATALOOP:      MOV     @R0,A
+0004 D8FD             41                     DJNZ    R0,IDATALOOP
+                      42     ENDIF
+                      43     IF XDATALEN <> 0
+0006 7401             44                     MOV     A,#1
+0008 F594             45                                     MOV     PAGESEL,A
+000A 7402             46                                     MOV     A,#2
+000C F595             47                                     MOV         D_PAGESEL,A
+                      48                                     
+000E 908000           49                                     MOV     DPTR,#XDATASTART
+0011 7F00             50                     MOV     R7,#LOW (XDATALEN)
+                      51     IF (LOW (XDATALEN)) <> 0
+                                             MOV     R6,#(HIGH (XDATALEN)) +1
+                             ELSE
+0013 7E80             54                     MOV     R6,#HIGH (XDATALEN)
+                      55     ENDIF
+0015 E4               56                     CLR     A
+A51 MACRO ASSEMBLER  STARTUP_M5                                                           07/09/2024 01:59:10 PAGE     2
+
+0016 F0               57     XDATALOOP:      MOVX    @DPTR,A
+0017 A3               58                     INC     DPTR
+0018 DFFC             59                     DJNZ    R7,XDATALOOP
+001A DEFA             60                     DJNZ    R6,XDATALOOP
+                      61     ENDIF
+                      62     IF PPAGEENABLE <> 0
+                                             MOV     PPAGE_SFR,#PPAGE
+                             ENDIF
+                      65     IF PDATALEN <> 0
+                                             MOV     R0,#LOW (PDATASTART)
+                                             MOV     R7,#LOW (PDATALEN)
+                                             CLR     A
+                             PDATALOOP:      MOVX    @R0,A
+                                             INC     R0
+                                             DJNZ    R7,PDATALOOP
+                             ENDIF
+                      73     IF IBPSTACK <> 0
+                             EXTRN DATA (?C_IBP)
+                                             MOV     ?C_IBP,#LOW IBPSTACKTOP
+                             ENDIF
+                      77     IF XBPSTACK <> 0
+                             EXTRN DATA (?C_XBP)
+                                             MOV     ?C_XBP,#HIGH XBPSTACKTOP
+                                             MOV     ?C_XBP+1,#LOW XBPSTACKTOP
+                             ENDIF
+                      82     IF PBPSTACK <> 0
+                             EXTRN DATA (?C_PBP)
+                                             MOV     ?C_PBP,#LOW PBPSTACKTOP
+                             ENDIF
+001C 758100   F       86                     MOV     SP,#?STACK-1
+                      87     
+                             
+                                             
+                             
+001F 020000   F       91                     LJMP    ?C_START
+                      92                     END
+A51 MACRO ASSEMBLER  STARTUP_M5                                                           07/09/2024 01:59:10 PAGE     3
+
+SYMBOL TABLE LISTING
+------ ----- -------
+
+
+N A M E             T Y P E  V A L U E   ATTRIBUTES
+
+?C_C51STARTUP. . .  C SEG    0022H       REL=UNIT
+?C_START . . . . .  C ADDR   -----       EXT
+?C_STARTUP . . . .  C ADDR   0000H   A   
+?STACK . . . . . .  I SEG    0001H       REL=UNIT
+ACC. . . . . . . .  D ADDR   00E0H   A   
+B. . . . . . . . .  D ADDR   00F0H   A   
+DPH. . . . . . . .  D ADDR   0083H   A   
+DPL. . . . . . . .  D ADDR   0082H   A   
+D_PAGESEL. . . . .  D ADDR   0095H   A   
+IBPSTACK . . . . .  N NUMB   0000H   A   
+IBPSTACKTOP. . . .  N NUMB   0100H   A   
+IDATALEN . . . . .  N NUMB   0100H   A   
+IDATALOOP. . . . .  C ADDR   0003H   R   SEG=?C_C51STARTUP
+PAGESEL. . . . . .  D ADDR   0094H   A   
+PBPSTACK . . . . .  N NUMB   0000H   A   
+PBPSTACKTOP. . . .  N NUMB   0100H   A   
+PDATALEN . . . . .  N NUMB   0000H   A   
+PDATASTART . . . .  N NUMB   0000H   A   
+PPAGE. . . . . . .  N NUMB   0000H   A   
+PPAGEENABLE. . . .  N NUMB   0000H   A   
+PPAGE_SFR. . . . .  D ADDR   00A0H   A   
+SP . . . . . . . .  D ADDR   0081H   A   
+STARTUP1 . . . . .  C ADDR   0000H   R   SEG=?C_C51STARTUP
+XBPSTACK . . . . .  N NUMB   0000H   A   
+XBPSTACKTOP. . . .  N NUMB   0000H   A   
+XDATALEN . . . . .  N NUMB   8000H   A   
+XDATALOOP. . . . .  C ADDR   0016H   R   SEG=?C_C51STARTUP
+XDATASTART . . . .  N NUMB   8000H   A   
+
+
+REGISTER BANK(S) USED: 0 
+
+
+ASSEMBLY COMPLETE.  0 WARNING(S), 0 ERROR(S)
